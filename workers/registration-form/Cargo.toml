@@ -1,0 +1,12 @@
+[package]
+name = "registration-form"
+version = "0.1.0"
+edition = "2021"
+authors = ["Elliot Marklund <elliotmarklund@gmail.com>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+worker = { version = "0.9" }
+worker-macros = { version = "0.9" }
