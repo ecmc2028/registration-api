@@ -4,7 +4,18 @@ compatibility_date = "2026-11-24"
 account_id = "0a23d00fd01c1f9a90641576d5a6e7fe"
 
 [build]
-command = "cargo install -q \"worker-build@^0.9\" && worker-build --release"
+command = """
+set -e
+if ! command -v cargo >/dev/null 2>&1; then
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+  . "$HOME/.cargo/env"
+fi
+rustup target add wasm32-unknown-unknown
+if ! command -v worker-build >/dev/null 2>&1; then
+  cargo install -q "worker-build@^0.9"
+fi
+worker-build --release
+"""
 
 [[d1_databases]]
 "binding" = "ecmc2028_registration"
