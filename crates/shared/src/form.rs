@@ -185,9 +185,13 @@ mod tests {
 
     #[test]
     fn test_field_parsing() -> Result<(), &'static str> {
-        let _passing_string_field = StringField::try_from("ECMC 2028".to_string())?;
-        let _passing_phone_field = PhoneNumberField::try_from("+46 70-420 67 69".to_string())?;
-        let _passing_email_field = EmailField::try_from("info@ecmc2028.se".to_string())?;
+        let passing_string_field = StringField::try_from("ECMC  2028".to_string())?;
+        let passing_phone_field = PhoneNumberField::try_from("+46 70-420 67 69".to_string())?;
+        let passing_email_field = EmailField::try_from("info@ecmc2028.se".to_string())?;
+        
+        assert_eq!(&passing_string_field.to_string(), "ECMC 2028"); // note removed whitespace
+        assert_eq!(&passing_phone_field.to_string(), "+46704206769"); // note removed whitespace and dash
+        assert_eq!(&passing_email_field.to_string(), "info@ecmc2028.se");
 
         assert!(
             EmailField::try_from("infoatecmc2028.se".to_string()).is_err(),
