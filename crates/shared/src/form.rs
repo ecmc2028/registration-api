@@ -15,9 +15,15 @@ pub enum FormDataError {
 macro_rules! parse_form_field {
     ($form:expr, $target_type:ty, $field_name:literal) => {
         if let Some(s) = $form.get_field($field_name) {
-            match <$target_type>::try_from(s) {
-                Ok(f) => Ok(f),
-                Err(explanation) => Err(FormDataError::MalformedField($field_name, explanation)),
+            if &s == "" {
+                Err(FormDataError::MissingField($field_name))
+            } else {
+                match <$target_type>::try_from(s) {
+                    Ok(f) => Ok(f),
+                    Err(explanation) => {
+                        Err(FormDataError::MalformedField($field_name, explanation))
+                    }
+                }
             }
         } else {
             Err(FormDataError::MissingField($field_name))
@@ -25,6 +31,7 @@ macro_rules! parse_form_field {
     };
 }
 
+#[derive(Debug)]
 struct StringField(String);
 
 /// TODO TryFrom<&str> instead?, or eliminate cloning as we are nonetheless cloning quite frequently?
@@ -44,9 +51,10 @@ impl Display for StringField {
     }
 }
 
-struct PhoneNumberField(String);
+#[derive(Debug)]
+struct PhoneField(String);
 
-impl TryFrom<String> for PhoneNumberField {
+impl TryFrom<String> for PhoneField {
     type Error = &'static str;
 
     fn try_from(s: String) -> Result<Self, Self::Error> {
@@ -82,17 +90,18 @@ impl TryFrom<String> for PhoneNumberField {
         } else if parsed.len() > 15 {
             Err("Phone number too long")
         } else {
-            Ok(PhoneNumberField(parsed))
+            Ok(PhoneField(parsed))
         }
     }
 }
 
-impl Display for PhoneNumberField {
+impl Display for PhoneField {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
     }
 }
 
+#[derive(Debug)]
 struct EmailField(String);
 
 impl TryFrom<String> for EmailField {
@@ -115,10 +124,11 @@ impl Display for EmailField {
 }
 
 #[allow(dead_code)]
+#[derive(Debug)]
 struct EmergencyContact {
     first_name: StringField,
     last_name: StringField,
-    phone: PhoneNumberField,
+    phone: PhoneField,
 }
 
 impl TryFrom<&FormData> for EmergencyContact {
@@ -127,7 +137,7 @@ impl TryFrom<&FormData> for EmergencyContact {
     fn try_from(form: &FormData) -> Result<Self, Self::Error> {
         let first_name = parse_form_field!(form, StringField, "emergency_contact_first_name")?;
         let last_name = parse_form_field!(form, StringField, "emergency_contact_last_name")?;
-        let phone = parse_form_field!(form, PhoneNumberField, "emergency_contact_phone")?;
+        let phone = parse_form_field!(form, PhoneField, "emergency_contact_phone")?;
         Ok(Self {
             first_name,
             last_name,
@@ -136,13 +146,14 @@ impl TryFrom<&FormData> for EmergencyContact {
     }
 }
 
+#[derive(Debug)]
 #[allow(dead_code)]
 pub struct Participant {
     first_name: StringField,
     last_name: StringField,
-    alias: StringField,
+    alias: Option<StringField>,
     email: EmailField,
-    phone_number: PhoneNumberField,
+    phone: PhoneField,
     country: StringField,
     emergency_contact: EmergencyContact,
 }
@@ -153,10 +164,15 @@ impl TryFrom<&FormData> for Participant {
     fn try_from(form: &FormData) -> Result<Self, Self::Error> {
         let first_name = parse_form_field!(form, StringField, "first_name")?;
         let last_name = parse_form_field!(form, StringField, "last_name")?;
-        let alias = parse_form_field!(form, StringField, "alias")?;
         let email = parse_form_field!(form, EmailField, "email")?;
-        let phone_number = parse_form_field!(form, PhoneNumberField, "phone")?;
+        let phone = parse_form_field!(form, PhoneField, "phone")?;
         let country = parse_form_field!(form, StringField, "country")?;
+
+        let alias = match parse_form_field!(form, StringField, "alias") {
+            Ok(alias) => Some(alias),
+            Err(FormDataError::MissingField("alias")) => None,
+            Err(e) => return Err(e),
+        };
 
         let emergency_contact = EmergencyContact::try_from(form)?;
 
@@ -165,7 +181,7 @@ impl TryFrom<&FormData> for Participant {
             last_name,
             alias,
             email,
-            phone_number,
+            phone,
             country,
             emergency_contact,
         })
@@ -178,6 +194,7 @@ impl TryFrom<&FormData> for Participant {
 /// cargo test -p shared && wasm-pack test --headless --chrome
 mod tests {
     use super::*;
+    use std::assert_matches;
     use wasm_bindgen_test::wasm_bindgen_test;
 
     // AI suggested using run_in_browser, though other options exist, e.g. npm?
@@ -186,9 +203,9 @@ mod tests {
     #[test]
     fn test_field_parsing() -> Result<(), &'static str> {
         let passing_string_field = StringField::try_from("ECMC  2028".to_string())?;
-        let passing_phone_field = PhoneNumberField::try_from("+46 70-420 67 69".to_string())?;
+        let passing_phone_field = PhoneField::try_from("+46 70-420 67 69".to_string())?;
         let passing_email_field = EmailField::try_from("info@ecmc2028.se".to_string())?;
-        
+
         assert_eq!(&passing_string_field.to_string(), "ECMC 2028"); // note removed whitespace
         assert_eq!(&passing_phone_field.to_string(), "+46704206769"); // note removed whitespace and dash
         assert_eq!(&passing_email_field.to_string(), "info@ecmc2028.se");
@@ -198,7 +215,7 @@ mod tests {
             "Email without '@' parsed"
         );
         assert!(
-            PhoneNumberField::try_from("070-420 67 69".to_string()).is_err(),
+            PhoneField::try_from("070-420 67 69".to_string()).is_err(),
             "Phone number without country code parsed"
         );
 
@@ -229,5 +246,41 @@ mod tests {
             EmergencyContact::try_from(&bad_form).is_err(),
             "Malformed emergency contact parsed"
         );
+    }
+
+    #[wasm_bindgen_test]
+    fn test_participant_parsing() {
+        let good_form = FormData::new();
+        good_form.set("first_name", "Jade").unwrap();
+        good_form.set("last_name", "Doe").unwrap();
+        good_form.set("alias", "").unwrap();
+        good_form.set("email", "jade@doe.com").unwrap();
+        good_form.set("phone", "+46 00 000 00 00").unwrap();
+        good_form.set("country", "Sweden").unwrap();
+        good_form
+            .set("emergency_contact_first_name", "John")
+            .unwrap();
+        good_form.set("emergency_contact_last_name", "Doe").unwrap();
+        good_form
+            .set("emergency_contact_phone", "+46 70 123 45 67")
+            .unwrap();
+
+        let good_form_parsed = Participant::try_from(&good_form).expect("Well formed form not parsed");
+        // assert that empty alias entry -> None instead of empty alias
+        assert_matches!(good_form_parsed.alias, None);
+        
+        let bad_form = FormData::new();
+        bad_form.set("first_name", "Jade").unwrap();
+        bad_form.set("last_name", "Doe").unwrap();
+        bad_form.set("alias", "").unwrap();
+        bad_form.set("email", "jade@doe.com").unwrap();
+        bad_form.set("phone", "+46 00 000 00 00").unwrap();
+        bad_form.set("emergency_contact_first_name", "John").unwrap();
+        bad_form.set("emergency_contact_last_name", "Doe").unwrap();
+        bad_form.set("emergency_contact_phone", "+46 70 123 45 67").unwrap();
+        
+        // missing country -> error
+        assert!(Participant::try_from(&bad_form).is_err());
+
     }
 }
