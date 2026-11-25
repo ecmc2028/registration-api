@@ -1,0 +1,11 @@
+[package]
+name = "shared"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+worker = { version = "0.9.0", features = ["d1"] }
+wasm-bindgen = "0.2.130"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
