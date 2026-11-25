@@ -1,4 +1,4 @@
-name = "registration-form"
+name = "registration-api"
 main = "build/index.js"
 compatibility_date = "2026-11-24"
 account_id = "0a23d00fd01c1f9a90641576d5a6e7fe"
