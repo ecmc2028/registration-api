@@ -34,6 +34,12 @@ macro_rules! parse_form_field {
 #[derive(Debug)]
 struct StringField(String);
 
+impl StringField {
+    fn to_str(&self) -> &str {
+        &self.0
+    }
+}
+
 /// TODO TryFrom<&str> instead?, or eliminate cloning as we are nonetheless cloning quite frequently?
 /// Not that this is super critical...
 impl TryFrom<String> for StringField {
@@ -53,6 +59,12 @@ impl Display for StringField {
 
 #[derive(Debug)]
 struct PhoneField(String);
+
+impl PhoneField {
+    fn to_str(&self) -> &str {
+        &self.0
+    }
+}
 
 impl TryFrom<String> for PhoneField {
     type Error = &'static str;
@@ -103,6 +115,12 @@ impl Display for PhoneField {
 
 #[derive(Debug)]
 struct EmailField(String);
+
+impl EmailField {
+    fn to_str(&self) -> &str {
+        &self.0
+    }
+}
 
 impl TryFrom<String> for EmailField {
     type Error = &'static str;
@@ -156,6 +174,39 @@ pub struct Participant {
     phone: PhoneField,
     country: StringField,
     emergency_contact: EmergencyContact,
+}
+
+impl Participant {
+    pub fn get_first_name(&self) -> &str {
+        self.first_name.to_str()
+    }
+    pub fn get_last_name(&self) -> &str {
+        self.last_name.to_str()
+    }
+    pub fn get_alias(&self) -> Option<&str> {
+        match &self.alias {
+            None => None,
+            Some(a) => Some(a.to_str()),
+        }
+    }
+    pub fn get_email(&self) -> &str {
+        self.email.to_str()
+    }
+    pub fn get_phone(&self) -> &str {
+        self.phone.to_str()
+    }
+    pub fn get_country(&self) -> &str {
+        self.country.to_str()
+    }
+    pub fn get_emergency_contact_first_name(&self) -> &str {
+        self.emergency_contact.first_name.to_str()
+    }
+    pub fn get_emergency_contact_last_name(&self) -> &str {
+        self.emergency_contact.last_name.to_str()
+    }
+    pub fn get_emergency_contact_phone(&self) -> &str {
+        self.emergency_contact.phone.to_str()
+    }
 }
 
 impl TryFrom<&FormData> for Participant {
@@ -265,22 +316,26 @@ mod tests {
             .set("emergency_contact_phone", "+46 70 123 45 67")
             .unwrap();
 
-        let good_form_parsed = Participant::try_from(&good_form).expect("Well formed form not parsed");
+        let good_form_parsed =
+            Participant::try_from(&good_form).expect("Well formed form not parsed");
         // assert that empty alias entry -> None instead of empty alias
         assert_matches!(good_form_parsed.alias, None);
-        
+
         let bad_form = FormData::new();
         bad_form.set("first_name", "Jade").unwrap();
         bad_form.set("last_name", "Doe").unwrap();
         bad_form.set("alias", "").unwrap();
         bad_form.set("email", "jade@doe.com").unwrap();
         bad_form.set("phone", "+46 00 000 00 00").unwrap();
-        bad_form.set("emergency_contact_first_name", "John").unwrap();
+        bad_form
+            .set("emergency_contact_first_name", "John")
+            .unwrap();
         bad_form.set("emergency_contact_last_name", "Doe").unwrap();
-        bad_form.set("emergency_contact_phone", "+46 70 123 45 67").unwrap();
-        
+        bad_form
+            .set("emergency_contact_phone", "+46 70 123 45 67")
+            .unwrap();
+
         // missing country -> error
         assert!(Participant::try_from(&bad_form).is_err());
-
     }
 }

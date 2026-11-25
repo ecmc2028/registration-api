@@ -1,6 +1,13 @@
 name = "registration-form"
 main = "build/index.js"
 compatibility_date = "2026-11-24"
+account_id = "0a23d00fd01c1f9a90641576d5a6e7fe"
 
 [build]
 command = "cargo install -q \"worker-build@^0.9\" && worker-build --release"
+
+[[d1_databases]]
+"binding" = "ecmc2028_registration"
+"database_name" = "ecmc2028-registration"
+"database_id" = "d5d0aa58-6308-48ac-b148-9e1614681aaa"
+"migrations_dir" = "../../database/migrations"

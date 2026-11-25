@@ -419,6 +419,7 @@ dependencies = [
 name = "registration-form"
 version = "0.1.0"
 dependencies = [
+ "shared",
  "worker",
  "worker-macros",
 ]
@@ -514,6 +515,7 @@ dependencies = [
 name = "shared"
 version = "0.1.0"
 dependencies = [
+ "wasm-bindgen",
  "wasm-bindgen-test",
  "worker",
 ]
